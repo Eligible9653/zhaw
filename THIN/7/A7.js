@@ -55,7 +55,7 @@ var Mmult = {
     /**
      * first factor
      */
-    f1:2 /*parseInt(process.argv[2])*/,
+    f1:5 /*parseInt(process.argv[2])*/,
 
     /**
      * second factor
@@ -83,9 +83,14 @@ var Mmult = {
      */
     right: [],
 
-    verbose: true,
-
     position: 0,
+
+    verbose: false,
+
+    showSteps: false,
+
+    animationQueue: [],
+
 
     fillBand: function () {
         this.f1u = this.dec2unary(this.f1);
@@ -113,7 +118,7 @@ var Mmult = {
     },
 
     getBand: function () {
-        return this.band;
+        return this.band.slice(0);
     },
 
     read: function () {
@@ -129,28 +134,28 @@ var Mmult = {
         }
     },
 
-    animationQueue: [],
 
     animateIt: function (duration) {
-        var i = 0,
-            queue = this.animationQueue;
-        var interval = setInterval(function () {
-            if (!queue[i]) {
-                clearInterval(interval);
-            }
-            if (console.clear && i < queue.length -1) {
-                console.clear();
-            }
-            console.log(queue[i]);
-            i++;
-        }, duration || 2000)
+        if (this.animate) {
+            var i = 0,
+                queue = this.animationQueue;
+            var interval = setInterval(function () {
+                if (!queue[i]) {
+                    clearInterval(interval);
+                }
+                if (console.clear && i < queue.length - 1) {
+                    console.clear();
+                }
+                console.log(queue[i]);
+                i++;
+            }, duration || 2000)
+        }
     },
 
-    print: function (force) {
-        var band = this.getBand(),
-            pos = this.position,
+    printBand: function (force) {
+        var pos = this.position,
             lines = new Array(4).fill('');
-        band.forEach(function (val, key) {
+        this.band.forEach(function (val, key) {
             lines[0] += (key == pos ? ' v ': "  ");
             lines[1] += '--';
             lines[2] += '|' + val;
@@ -161,8 +166,27 @@ var Mmult = {
         lines[2] += '|';
         lines[3] += '-';
         if(this.verbose === true || force){
-            this.animate ? this.animationQueue.push(lines.join("\n")) : console.log(lines.join("\n"));
+            console.log(lines.join("\n"));
         }
+        if(this.animate) {
+            this.animationQueue.push(lines.join("\n"))
+        }
+    },
+
+    printStep: function (state, force) {
+        if(this.verbose === true || force || this.showSteps === true) {
+            var bandL = this.band.slice(0, this.position).join(""),
+                bandR = this.band.slice(this.position).join("");
+            console.log('|-' + bandL + " " + state + " "  + bandR)
+        }
+    },
+
+    print: function (state, conf) {
+        var configuration = conf || {},
+            printBandForce = !!configuration.printBandForce,
+            printStepForce = !!configuration.printStepForce;
+        this.printStep(state, printStepForce);
+        this.printBand(printBandForce);
     },
 
     /**
@@ -172,47 +196,46 @@ var Mmult = {
     compute: function () {
         this.band = new Array(this.bandLength);
         this.fillBand();
-        this.print(true);
+        this.print('q0', {printBandForce: true});
         while(!this.done){
             // for each x found left of multiplier
             this.moveRight();
-            this.print();
+            this.print('q1');
             if(this.read() == 'x'){
                 this.write('.');
-                this.print();
+                this.print('q2');
                 // go to multiplier sign
-                this.print();
                 while(this.read() !== '*'){
                     this.moveRight();
-                    this.print();
+                    this.print('q2');
                 }
                 // if multiplication is found
                 this.moveRight();
-                this.print();
+                this.print('q3');
                 // for each x
                 while(this.read() == 'x'){
                     // found mark as .
                     this.write('.');
-                    this.print();
+                    this.print('q3');
                     // go to a blank after end (/)
                     while(this.read() !== '/'){
                         this.moveRight();
-                        this.print();
+                        this.print('q4');
                     }
                     while(this.band[this.position] !== " "){
                         this.moveRight();
-                        this.print();
+                        this.print('q5');
                     }
                     // and write an X
                     this.write('X');
-                    this.print();
+                    this.print('q5');
                     // go to next occurrence of unar factor and repeat process
                     while(this.read() !== '.'){
                         this.moveLeft();
-                        this.print();
+                        this.print('q6');
                     }
                     this.moveRight();
-                    this.print();
+                    this.print('q3');
 
                 }
                 // if there are no more unar factor components
@@ -223,21 +246,28 @@ var Mmult = {
                 // else unmark everything after operand *
                 else{
                     this.moveLeft();
-                    this.print();
+                    this.print('q7');
                     while(this.read() !== '*'){
                         this.write('x');
-                        this.print();
+                        this.print('q7');
                         this.moveLeft();
-                        this.print();
+                        this.print('q7');
                     }
                     this.position = 0;
                 }
             }
         }
-        this.print(true);
+        this.print('qEnd', {printBandForce: true});
+
+        if(this.animate){
+            Mmult.animateIt(200);
+        }
 
     }
 };
+
+
+Mmult.verbose = false;
+Mmult.showSteps = false;
 Mmult.animate = true;
 Mmult.compute();
-Mmult.animateIt(200);
